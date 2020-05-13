@@ -1,4 +1,4 @@
-import { Account, SessionStorageKeys } from '@/util/constants'
+import { Account, Actions, SessionStorageKeys } from '@/util/constants'
 import { Action, Module, Mutation, VuexModule } from 'vuex-module-decorators'
 import {
   AddUsersToOrgBody,
@@ -13,6 +13,7 @@ import {
 import { BcolAccountDetails, BcolProfile } from '@/models/bcol'
 import { CreateRequestBody as CreateInvitationRequestBody, Invitation } from '@/models/Invitation'
 import { Products, ProductsRequestBody } from '@/models/Staff'
+import { TransactionDateFilter, TransactionTableList, TransactionTableRow } from '@/models/transaction'
 import { AccountSettings } from '@/models/account-settings'
 import { Address } from '@/models/address'
 import BcolService from '@/services/bcol.services'
@@ -20,6 +21,7 @@ import ConfigHelper from '@/util/config-helper'
 import { EmptyResponse } from '@/models/global'
 import InvitationService from '@/services/invitation.services'
 import OrgService from '@/services/org.services'
+import PaymentService from '@/services/payment.services'
 import { PaymentSettings } from '@/models/PaymentSettings'
 import StaffService from '@/services/staff.services'
 import UserService from '@/services/user.services'
@@ -46,10 +48,17 @@ export default class OrgModule extends VuexModule {
   tokenError = false
   createdUsers: BulkUsersSuccess[] = []
   failedUsers: BulkUsersFailed[] = []
+  accountTypeBeforeChange = '' // used for detecting the original type of the account which is getting down/up graded
 
+  currentOrgTransactionList: TransactionTableRow[] = []
   @Mutation
   public setCurrentOrgPaymentSettings (currentOrgPaymentSettings:PaymentSettings) {
     this.currentOrgPaymentSettings = currentOrgPaymentSettings
+  }
+
+  @Mutation
+  public setAccountTypeBeforeChange (accountTypeBeforeChange:string) {
+    this.accountTypeBeforeChange = accountTypeBeforeChange
   }
 
   @Mutation
@@ -62,6 +71,13 @@ export default class OrgModule extends VuexModule {
   @Mutation
   public resetCurrentOrganisation () {
     this.currentOrganization = { name: '' }
+  }
+
+  @Mutation
+  public resetBcolDetails () {
+    this.currentOrganization.bcolProfile = undefined
+    this.currentOrganization.bcolAccountDetails = undefined
+    this.currentOrgAddress = undefined
   }
 
   @Mutation
@@ -133,6 +149,11 @@ export default class OrgModule extends VuexModule {
     this.failedUsers = users
   }
 
+  @Mutation
+  public setCurrentOrgTransactionList (transactionResp: TransactionTableList) {
+    this.currentOrgTransactionList = transactionResp.transactionsList
+  }
+
   @Action({ rawError: true })
   public async resetCurrentOrganization (): Promise<void> {
     this.context.commit('setCurrentOrganization', undefined)
@@ -163,6 +184,24 @@ export default class OrgModule extends VuexModule {
   public async createOrgByStaff (createRequestBody: CreateOrgRequestBody): Promise<Organization> {
     const response = await OrgService.createOrg(createRequestBody)
     this.context.commit('setCurrentOrganization', response?.data)
+    return response?.data
+  }
+
+  @Action({ rawError: true })
+  public async changeOrgType (action:Actions): Promise<Organization> {
+    const org:Organization = this.context.state['currentOrganization']
+    let createRequestBody: CreateRequestBody = {
+      name: org.name,
+      typeCode: org.orgType
+    }
+    if (org.orgType === Account.PREMIUM) {
+      createRequestBody.bcOnlineCredential = org.bcolProfile
+      createRequestBody.mailingAddress = this.context.state['currentOrgAddress']
+    }
+    const response = await OrgService.upgradeOrDowngradeOrg(createRequestBody, org.id, action)
+    const organization = response?.data
+    this.context.commit('setCurrentOrganization', organization)
+    this.context.commit('setAccountTypeBeforeChange', organization.orgType)
     return response?.data
   }
 
@@ -418,6 +457,43 @@ export default class OrgModule extends VuexModule {
     } catch (exception) {
       throw exception
     }
+  }
+
+  @Action({ commit: 'setCurrentOrgTransactionList', rawError: true })
+  public async getTransactionList (dateFilter: TransactionDateFilter) {
+    const response = await PaymentService.getTransactions(this.context.state['currentOrganization'].id, dateFilter)
+    if (response?.data) {
+      const formattedList = await this.formatTransactionTableData(response.data.items || [])
+      return {
+        limit: response.data.limit,
+        page: response.data.page,
+        total: response.data.total,
+        transactionsList: formattedList
+      }
+    }
+    return {}
+  }
+
+  // This function will be used to format the transaction response to a required table display format
+  @Action({ rawError: true })
+  private formatTransactionTableData (transactionList) {
+    let transactionTableData = []
+    transactionList.forEach(transaction => {
+      let transactionNames = []
+      transaction?.invoice?.lineItems?.forEach(lineItem => {
+        transactionNames.push(lineItem.description)
+      })
+      transactionTableData.push({
+        id: transaction.id,
+        transactionNames: transactionNames,
+        folioNumber: transaction?.invoice?.folioNumber || '',
+        initiatedBy: transaction.createdName,
+        transactionDate: transaction.createdOn,
+        totalAmount: transaction?.invoice?.total || 0,
+        status: transaction.statusCode
+      })
+    })
+    return transactionTableData
   }
 
   @Action({ rawError: true })

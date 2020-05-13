@@ -38,7 +38,8 @@ export enum Pages {
     DIRSEARCH_CONFIRM_TOKEN = 'dirsearch-confirmtoken',
     USER_PROFILE_TERMS = 'userprofileterms',
     USER_PROFILE_TERMS_DECLINE = 'unauthorizedtermsdecline',
-    HOME = 'home'
+    HOME = 'home',
+    EDIT_ACCOUNT_TYPE= '/change-account'
 }
 
 export enum Account {
@@ -61,4 +62,12 @@ export enum LoginSource {
 
 export enum FilingTypes {
   INCORPORATION_APPLICATION = 'incorporationApplication'
+}
+
+export type Actions = 'upgrade' | 'downgrade'
+
+export enum TransactionStatus {
+    COMPLETED = 'COMPLETED',
+    CREATED = 'CREATED',
+    DELETED = 'DELETED'
 }

@@ -3,6 +3,8 @@ import { Member, MembershipStatus, Organization } from '@/models/Organization'
 import Router, { Route, RouteConfig } from 'vue-router'
 import AcceptInviteLandingView from '@/views/auth/AcceptInviteLandingView.vue'
 import AcceptInviteView from '@/views/auth/AcceptInviteView.vue'
+import AccountChangeSuccessView from '@/views/auth/AccountChangeSuccessView.vue'
+import AccountChangeView from '@/views/auth/AccountChangeView.vue'
 import AccountCreationSuccessView from '@/views/auth/AccountCreationSuccessView.vue'
 import { AccountSettings } from '@/models/account-settings'
 import AccountSetupView from '@/views/auth/AccountSetupView.vue'
@@ -49,6 +51,7 @@ export function getRoutes (): RouteConfig[] {
   const accountSettings = () => import(/* webpackChunkName: "account-settings" */ './views/auth/AccountSettings.vue')
   const accountInfo = () => import(/* webpackChunkName: "account-settings" */ './components/auth/AccountInfo.vue')
   const teamManagement = () => import(/* webpackChunkName: "account-settings" */ './components/auth/TeamManagement.vue')
+  const transaction = () => import(/* webpackChunkName: "account-settings" */ './components/auth/Transactions.vue')
   const routes = [
     { path: '/', name: 'root', component: HomeView, meta: { showNavBar: true } },
     { path: '/home', name: 'home', component: HomeView, meta: { showNavBar: true } },
@@ -91,10 +94,17 @@ export function getRoutes (): RouteConfig[] {
           path: 'team-members',
           name: 'team-members',
           component: teamManagement
+        },
+        {
+          path: 'transactions',
+          name: 'transactions',
+          component: transaction
         }
       ]
     },
+    { path: '/change-account', name: 'changeaccount', component: AccountChangeView, props: true, meta: { requiresAuth: true, requiresProfile: true } },
     { path: '/setup-account', name: 'setupaccount', component: AccountSetupView, props: true, meta: { requiresAuth: true, requiresProfile: true } },
+    { path: '/change-account-success', name: 'change-account-success', component: AccountChangeSuccessView, meta: { requiresAuth: true, requiresProfile: true } },
     { path: '/setup-account-success', name: 'setup-account-success', component: AccountCreationSuccessView, meta: { requiresAuth: true, requiresProfile: true } },
     { path: '/userprofile/:token?', name: 'userprofile', component: UserProfileView, props: true, meta: { requiresAuth: true, requiresProfile: true } },
     { path: '/createaccount', name: 'createaccount', component: CreateAccountView, meta: { requiresAuth: false, requiresProfile: false }, props: true },
