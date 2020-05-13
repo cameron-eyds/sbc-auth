@@ -58,3 +58,7 @@ export enum LoginSource {
     IDIR = 'IDIR',
     BCSC = 'BCSC'
 }
+
+export enum FilingTypes {
+  INCORPORATION_APPLICATION = 'incorporationApplication'
+}
